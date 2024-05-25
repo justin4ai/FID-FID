@@ -63,7 +63,9 @@ class VitConfig():
                  patch_size = 16,
                  highpass_rate = 8,
                  num_attention_heads = 12,
-                 intermediate_size = 3072
+                 intermediate_size = 3072,
+                 num_labels = 2,
+                 labels = ["real", "generated"]
         ):
         self.num_hidden_layers = num_hidden_layers
         self.image_size = image_size
@@ -74,6 +76,8 @@ class VitConfig():
         self.highpass_rate = highpass_rate
         self.num_attention_heads = num_attention_heads
         self.intermediate_size = intermediate_size
+        self.num_labels = num_labels
+        self.labels = labels
 
 class HighPass(nn.Module):
     def __init__(self, config = VitConfig()):
@@ -252,6 +256,7 @@ class HighFreqVitEncoder(nn.Module):
         super().__init__()
         self.original_img_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224')
         self.highfreq_img_encoder = VitEncoder()
+        self.cls_token = nn.Parameter(torch.randn(1, 1, config.hidden_size))
         self.CrossBlocks = nn.ModuleList([])
         for _ in range(config.num_hidden_layers):
             block = CrossAttentionBlock()
@@ -259,25 +264,49 @@ class HighFreqVitEncoder(nn.Module):
             
     def forward(self, batch):
         image_embaddings = self.original_img_encoder(batch).last_hidden_state
-        image_embaddings = image_embaddings[:,1:,:]
+        cls_tokens = self.cls_token.expand(batch.shape[0], -1, -1)
+        x = torch.cat((cls_tokens, self.highfreq_img_encoder(batch)), dim = 1)
         
-        x = self.highfreq_img_encoder(batch)
         for block in self.CrossBlocks:
             x = block(image_embaddings, x)
         
         return x
 
+class HighFreqVitClassifier(nn.Module):
+    def __init__(self, config = VitConfig()):
+        super().__init__()
+        self.vit = HighFreqVitEncoder()
+        self.num_labels = config.num_labels
+        self.classifier = nn.Linear(config.hidden_size, self.num_labels)
+        self.output = nn.Softmax()
+        
+    def forward(self, image, label):
+        vit_output = self.vit(image)
+        logits = self.classifier(vit_output[:, 0, :])
+        loss_func = nn.CrossEntropyLoss()
+        loss = loss_func(logits, label)
+
+        logit_outputs = self.output(logits)
+        return (logit_outputs, loss)
 
 def main():
     data = get_datasets()
     dataloader = DataLoader(dataset = data, batch_size = 5)
-    highfreq_encoder = HighFreqVitEncoder()
+    classifier = HighFreqVitClassifier()
     
     for batch in dataloader:
         img, label = batch
-        embaddings = highfreq_encoder(img)
-        print(embaddings.shape)
-
+        labels = []
+        for class_name in label:
+            if class_name == 'real':
+                labels.append([1, 0])
+            else:
+                labels.append([0, 1])
+        labels = torch.tensor(labels, dtype = torch.float64)
+        logits, loss = classifier(img, labels)
+        print(logits)
+        print(loss)
+        
 
 if __name__ == '__main__':
     main()
