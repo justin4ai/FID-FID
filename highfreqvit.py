@@ -277,14 +277,24 @@ class HighFreqVitClassifier(nn.Module):
         super().__init__()
         self.vit = HighFreqVitEncoder()
         self.num_labels = config.num_labels
+        self.class_name = config.labels
+        self.labels = []
         self.classifier = nn.Linear(config.hidden_size, self.num_labels)
+        self.loss_func = nn.CrossEntropyLoss()
         self.output = nn.Softmax()
         
     def forward(self, image, label):
+        for target_class in label:
+            if target_class == self.class_name[0]:
+                self.labels.append([1, 0])
+            else:
+                self.labels.append([0, 1])
+        self.labels = torch.tensor(self.labels, dtype = torch.float64)
+        
         vit_output = self.vit(image)
         logits = self.classifier(vit_output[:, 0, :])
-        loss_func = nn.CrossEntropyLoss()
-        loss = loss_func(logits, label)
+        
+        loss = self.loss_func(logits, self.labels)
 
         logit_outputs = self.output(logits)
         return (logit_outputs, loss)
@@ -296,14 +306,7 @@ def main():
     
     for batch in dataloader:
         img, label = batch
-        labels = []
-        for class_name in label:
-            if class_name == 'real':
-                labels.append([1, 0])
-            else:
-                labels.append([0, 1])
-        labels = torch.tensor(labels, dtype = torch.float64)
-        logits, loss = classifier(img, labels)
+        logits, loss = classifier(img, label)
         print(logits)
         print(loss)
         
