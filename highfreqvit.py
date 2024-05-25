@@ -5,6 +5,7 @@ import cv2
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
+from transformers import ViTImageProcessor, ViTModel
 from torch import nn
 import numpy as np
 import polars as pl
@@ -31,32 +32,33 @@ class MyDatasets(Dataset):
             
         return img, label
 
-def show_tensor_image(t_img):
+def tensor_to_image(tensor):
     reverse_transforms = transforms.Compose([
-        transforms.Lambda(lambda t: (t+1)/2),
-        transforms.Lambda(lambda t: t.permute(1, 2, 0)),
-        transforms.Lambda(lambda t: t*255.),
-        transforms.Lambda(lambda t: t.numpy().astype(np.uint8)),
+        transforms.Normalize((-1, -1, -1), (2, 2, 2)),
         transforms.ToPILImage()
     ])
     
+    return reverse_transforms(tensor)
+
+def show_tensor_image(t_img): 
     if len(t_img.shape) == 4:
         t_img = t_img[0, :, : ,:]
-    img = reverse_transforms(t_img)
+    
+    img = tensor_to_image(t_img)
     plt.imshow(img)
     plt.show()
 
-def get_datasets(size):
+def get_datasets(size = 224):
     trans = transforms.Compose([transforms.Resize((size, size)),
                                 transforms.ToTensor(),
-                                transforms.Lambda(lambda t: (t*2)-1)])
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     return MyDatasets(path = "./datasets", transform = trans)
 
 class VitConfig():
     def __init__(self,
                  num_hidden_layers = 12,
-                 image_size = 256,
+                 image_size = 224,
                  num_channels = 3,
                  patch_size = 16,
                  highpass_rate = 8,
@@ -92,7 +94,7 @@ class HighPass(nn.Module):
         
     def forward(self, batch):
         highpassed = self.highpass_filter(batch)
-        return highpassed       
+        return highpassed
 
 class PatchEmbadding(nn.Module):
     def __init__(self, config = VitConfig()):
@@ -156,7 +158,7 @@ class MSAttention(nn.Module):
         outputs = self.to_embaddings(context)
         
         return outputs
- 
+
 class MLP(nn.Module):
     def __init__(self, config = VitConfig()):
         super().__init__()
@@ -170,21 +172,22 @@ class MLP(nn.Module):
         x = self.dense_after(x)
         
         return x
-    
-class Block(nn.Module):
+
+class EncoderBlock(nn.Module):
     def __init__(self, config = VitConfig()):
         super().__init__()
         self.attention = MSAttention()
         self.mlp = MLP()
         self.layernorm_before = nn.LayerNorm(config.hidden_size)
-        self.layernorm_after = nn.LayerNorm(config.hidden_size)
+        self.layernorm_att = nn.LayerNorm(config.hidden_size)
+        self.layernorm_mlp = nn.LayerNorm(config.hidden_size)
         
     def forward(self, hidden_states):
         self_attention_output = self.attention(self.layernorm_before(hidden_states))
-        hidden_states = hidden_states + self_attention_output
+        hidden_states = hidden_states + self.layernorm_att(self_attention_output)
         
-        mlp_output = self.mlp(self.layernorm_after(hidden_states))
-        hidden_states = hidden_states + mlp_output
+        mlp_output = self.mlp(hidden_states)
+        hidden_states = hidden_states + self.layernorm_mlp(mlp_output)
         
         return hidden_states
 
@@ -195,7 +198,7 @@ class VitEncoder(nn.Module):
         self.patch_embaddings = PatchEmbadding()
         self.blocks = nn.ModuleList([])
         for _ in range(config.num_hidden_layers):
-            block = Block()
+            block = EncoderBlock()
             self.blocks.append(block)
             
     def forward(self, batch):
@@ -205,15 +208,74 @@ class VitEncoder(nn.Module):
         
         return x
 
+class CrossAttention(MSAttention):
+    def __init__(self, config = VitConfig()):
+        super().__init__()
+    
+    def forward(self, query_hidden_states, key_value_hidden_states):
+        mixed_key = self.key(key_value_hidden_states)
+        mixed_value = self.value(key_value_hidden_states)
+        mixed_query = self.qeury(query_hidden_states)
+        
+        key_layer = self.to_score(mixed_key)
+        value_layer = self.to_score(mixed_value)
+        query_layer = self.to_score(mixed_query)
+
+        scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        scores = scores/math.sqrt(self.head_size)
+        softmax_scores = nn.functional.softmax(scores, dim = -1)
+        
+        context = torch.matmul(softmax_scores, value_layer)
+        outputs = self.to_embaddings(context)
+        
+        return outputs
+
+class CrossAttentionBlock(nn.Module):
+    def __init__(self, config = VitConfig()):
+        super().__init__() 
+        self.cross_attention = CrossAttention()
+        self.mlp = MLP()
+        self.layernorm_att = nn.LayerNorm(config.hidden_size)
+        self.layernorm_mlp = nn.LayerNorm(config.hidden_size)
+        
+    def forward(self, image_hidden_states, freq_hidden_states):
+        cross_attention_output = self.cross_attention(freq_hidden_states, image_hidden_states)
+        hidden_states = freq_hidden_states + self.layernorm_att(cross_attention_output)
+        
+        mlp_output = self.mlp(hidden_states)
+        hidden_states = hidden_states + self.layernorm_mlp(mlp_output)
+        
+        return hidden_states
+
+class HighFreqVitEncoder(nn.Module):
+    def __init__(self, config = VitConfig()):
+        super().__init__()
+        self.original_img_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        self.highfreq_img_encoder = VitEncoder()
+        self.CrossBlocks = nn.ModuleList([])
+        for _ in range(config.num_hidden_layers):
+            block = CrossAttentionBlock()
+            self.CrossBlocks.append(block)
+            
+    def forward(self, batch):
+        image_embaddings = self.original_img_encoder(batch).last_hidden_state
+        image_embaddings = image_embaddings[:,1:,:]
+        
+        x = self.highfreq_img_encoder(batch)
+        for block in self.CrossBlocks:
+            x = block(image_embaddings, x)
+        
+        return x
+
+
 def main():
-    img_size = 256
-    data = get_datasets(img_size)
+    data = get_datasets()
     dataloader = DataLoader(dataset = data, batch_size = 5)
-    encoder = VitEncoder()
+    highfreq_encoder = HighFreqVitEncoder()
     
     for batch in dataloader:
         img, label = batch
-        embaddings = encoder(img)
+        embaddings = highfreq_encoder(img)
         print(embaddings.shape)
 
 
