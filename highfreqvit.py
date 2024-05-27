@@ -15,9 +15,16 @@ class MyDatasets(Dataset):
     def __init__(self, path, train = True, transform = None):
         self.path = path
         
-        self.data = glob.glob(self.path + '/test/*.jpg')
-        class_list = pl.read_csv("./datasets/test_labels.csv", separator = ';')
-        self.class_list = class_list.select(pl.col('label')).to_numpy().flatten()
+        if train:
+            self.data_real = glob.glob(self.path + '/train/real/*.jpg')
+            self.data_generated = glob.glob(self.path + '/train/generated/*.jpg')
+            self.data = self.data_real + self.data_generated
+            self.class_list = ["real"] * len(self.data_real) + ["generated"] * len(self.data_generated)
+        else:
+            self.data = glob.glob(self.path + '/test/*.jpg')
+            class_list = pl.read_csv("./datasets/test/test_labels.csv", separator = ';')
+            self.class_list = class_list.select(pl.col('label')).to_numpy().flatten()
+        
         self.transform = transform
         
     def __len__(self):
@@ -278,23 +285,28 @@ class HighFreqVitClassifier(nn.Module):
         self.vit = HighFreqVitEncoder()
         self.num_labels = config.num_labels
         self.class_name = config.labels
-        self.labels = []
         self.classifier = nn.Linear(config.hidden_size, self.num_labels)
         self.loss_func = nn.CrossEntropyLoss()
         self.output = nn.Softmax()
-        
-    def forward(self, image, label):
-        for target_class in label:
-            if target_class == self.class_name[0]:
-                self.labels.append([1, 0])
-            else:
-                self.labels.append([0, 1])
-        self.labels = torch.tensor(self.labels, dtype = torch.float64)
+       
+    def one_hot_encoding(self, labels):
+        one_hot_vectors = []
+        for target_class in labels:
+            vector = np.zeros(self.num_labels)
+            for idx in range(self.num_labels):  
+                if target_class == self.class_name[idx]:
+                    vector[idx] = 1
+            one_hot_vectors.append(vector)
+            
+        return one_hot_vectors
+         
+    def forward(self, image, labels):
+        labels = self.one_hot_encoding(labels)
         
         vit_output = self.vit(image)
         logits = self.classifier(vit_output[:, 0, :])
         
-        loss = self.loss_func(logits, self.labels)
+        loss = self.loss_func(logits, torch.tensor(labels, dtype = torch.float64))
 
         logit_outputs = self.output(logits)
         return (logit_outputs, loss)
@@ -306,6 +318,7 @@ def main():
     
     for batch in dataloader:
         img, label = batch
+        print(img.shape, label)
         logits, loss = classifier(img, label)
         print(logits)
         print(loss)
