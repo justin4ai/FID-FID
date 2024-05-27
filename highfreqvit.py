@@ -222,7 +222,16 @@ class VitEncoder(nn.Module):
 class CrossAttention(MSAttention):
     def __init__(self, config = VitConfig()):
         super().__init__()
-    
+        self.hidden_size = config.hidden_size
+        self.num_patchs = config.num_patchs
+        self.num_attention_heads = config.num_attention_heads
+        self.head_size = int(self.hidden_size/self.num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.head_size
+        
+        self.qeury = nn.Linear(self.hidden_size, self.all_head_size, bias = True)
+        self.key = nn.Linear(self.hidden_size, self.all_head_size, bias = True)
+        self.value = nn.Linear(self.hidden_size, self.all_head_size, bias = True)
+
     def forward(self, query_hidden_states, key_value_hidden_states):
         mixed_key = self.key(key_value_hidden_states)
         mixed_value = self.value(key_value_hidden_states)
