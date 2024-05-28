@@ -10,6 +10,8 @@ from torch import nn
 import numpy as np
 import polars as pl
 import math
+import random
+from tqdm import tqdm
 
 class MyDatasets(Dataset):
     def __init__(self, path, train = True, transform = None):
@@ -17,7 +19,8 @@ class MyDatasets(Dataset):
         
         if train:
             self.data_real = glob.glob(self.path + '/train/real/*.jpg')
-            self.data_generated = glob.glob(self.path + '/train/generated/*.jpg')
+            self.data_real = random.sample(self.data_real, 1000)
+            self.data_generated = glob.glob(self.path + '/train/generated/*.*')
             self.data = self.data_real + self.data_generated
             self.class_list = ["real"] * len(self.data_real) + ["generated"] * len(self.data_generated)
         else:
@@ -85,6 +88,7 @@ class VitConfig():
         self.intermediate_size = intermediate_size
         self.num_labels = num_labels
         self.labels = labels
+        self.device = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
 
 class HighPass(nn.Module):
     def __init__(self, config = VitConfig()):
@@ -296,7 +300,7 @@ class HighFreqVitClassifier(nn.Module):
         self.class_name = config.labels
         self.classifier = nn.Linear(config.hidden_size, self.num_labels)
         self.loss_func = nn.CrossEntropyLoss()
-        self.output = nn.Softmax()
+        self.output = nn.Softmax(dim = -1)
        
     def one_hot_encoding(self, labels):
         one_hot_vectors = []
@@ -307,30 +311,82 @@ class HighFreqVitClassifier(nn.Module):
                     vector[idx] = 1
             one_hot_vectors.append(vector)
             
-        return one_hot_vectors
-         
-    def forward(self, image, labels):
-        labels = self.one_hot_encoding(labels)
+        return torch.as_tensor(np.array(one_hot_vectors))
         
+    def reverse_one_hot_encoding(self, outputs):
+        labels = []
+        for vector in outputs:
+            if vector[0] == 1:
+                labels.append('real')
+            else:
+                labels.append('generated')
+        
+        return labels
+    
+    def forward(self, image, labels, device):
+        labels = self.one_hot_encoding(labels).to(device)
         vit_output = self.vit(image)
         logits = self.classifier(vit_output[:, 0, :])
-        
-        loss = self.loss_func(logits, torch.tensor(labels, dtype = torch.float64))
+        loss = self.loss_func(logits, labels)
 
         logit_outputs = self.output(logits)
+        logit_outputs[logit_outputs>=0.5] = 1
+        logit_outputs[logit_outputs<0.5] = 0
+        logit_outputs = self.reverse_one_hot_encoding(logit_outputs)
         return (logit_outputs, loss)
 
 def main():
     data = get_datasets()
-    dataloader = DataLoader(dataset = data, batch_size = 5)
+    batch_size = 50
+    dataloader = DataLoader(dataset = data, batch_size = batch_size, shuffle = True)
+    num_datas = len(dataloader)
     classifier = HighFreqVitClassifier()
+    device = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
+    print(device, torch.cuda.get_device_name())
+    classifier.to(device)
+    num_epochs = 100
+    optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01)
+    checkpoint = None
     
-    for batch in dataloader:
-        img, label = batch
-        print(img.shape, label)
-        logits, loss = classifier(img, label)
-        print(logits)
-        print(loss)
+    if glob.glob("./*.pt"):
+        checkpoint = torch.load("./model_state_dict.pt")
+        classifier.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        checkpoint_epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+    
+    print(checkpoint['epoch'])    
+    for epoch in range(num_epochs):
+        
+        if bool(checkpoint) and (epoch <= checkpoint_epoch):
+            continue
+        
+        correct = 0
+        
+        for batch_num, batch in enumerate(tqdm(dataloader)):
+            optimizer.zero_grad()
+            
+            img, labels = batch
+            labels = list(labels)
+            
+            logits, loss = classifier(img.to(device), labels, device)
+            
+            for idx in range(len(labels)):
+                if labels[idx] == logits[idx]:
+                    correct += 1
+            
+            loss.backward()
+            optimizer.step()
+            
+        acc = correct/num_datas
+        print("\nEpoch : ", epoch, "\nTraining accuracy : ", acc, "%\nTraining Loss : ", loss.item(), "\n")
+        
+        torch.save({
+                    'epoch' : epoch, 
+                    'model_state_dict' : classifier.state_dict(),
+                    'optimizer_state_dict' : optimizer.state_dict(),
+                    'loss' : loss
+                    }, "./model_state_dict.pt")
         
 
 if __name__ == '__main__':
