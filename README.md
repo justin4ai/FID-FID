@@ -28,8 +28,8 @@ freq_based_deepfake
 
 # Train
 ----
-`python train.py'
+```python train.py```
 
 # Evaluation
 ----
-`python evaluation.py'
+```python evaluation.py```
