@@ -73,6 +73,7 @@ class HighFreqVitEncoder(nn.Module):
     def __init__(self, config = VitConfig()):
         super().__init__()
         self.original_img_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        self.original_img_encoder.eval() # Freeze pretrained ViT
         self.highfreq_img_encoder = FreqEncoder.VitEncoder()
         self.cls_token = nn.Parameter(torch.randn(1, 1, config.hidden_size))
         self.CrossBlocks = nn.ModuleList([])
