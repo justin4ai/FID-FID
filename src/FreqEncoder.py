@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import math
-from Configueration import VitConfig
+from src.Configueration import VitConfig
 
 class HighPass(nn.Module):
     def __init__(self, config = VitConfig()):

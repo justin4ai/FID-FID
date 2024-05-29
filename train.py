@@ -2,8 +2,8 @@ import glob
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import CustomDataLoader
-import HighFreqVit
+from src import CustomDataLoader
+from src import HighFreqVit
 
 def main():
     customloader = CustomDataLoader.DataProcesser()
