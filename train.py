@@ -20,7 +20,8 @@ def main():
     checkpoint = None
     
     if glob.glob("./*.pt"): # never be run as long as we save all the checkpoints under 'checkpoints' folder
-        checkpoint = torch.load("./detector.pt")
+       checkpoint_path = glob.glob.pop() # bring latest checkpoint
+       checkpoint = torch.load(checkpoint_path)
         classifier.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         checkpoint_epoch = checkpoint['epoch']
