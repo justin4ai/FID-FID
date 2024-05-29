@@ -59,5 +59,5 @@ class DataProcesser():
             
         plt.show()
 
-    def get_datasets(self, path):
-        return MyDatasets(path = path, transform = self.trans)
+    def get_datasets(self, path, train = True):
+        return MyDatasets(path = path, train = train, transform = self.trans)

@@ -2,8 +2,8 @@ import torch
 from torch import nn
 import math
 import numpy as np
-from Configueration import VitConfig
-import FreqEncoder
+from src.Configueration import VitConfig
+from src import FreqEncoder
 from transformers import ViTModel
 
 
@@ -121,7 +121,7 @@ class HighFreqVitClassifier(nn.Module):
         
         return labels
     
-    def forward(self, image, labels, device):
+    def forward(self, image, labels, device = None):
         labels = self.one_hot_encoding(labels).to(device)
         vit_output = self.vit(image)
         logits = self.classifier(vit_output[:, 0, :])
