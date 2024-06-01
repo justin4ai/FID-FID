@@ -4,27 +4,30 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from src import CustomDataLoader
 from src import HighFreqVit
+import argparse
 
-def main():
+def main(args):
     customloader = CustomDataLoader.DataProcesser()
-    data = customloader.get_datasets(path = "./datasets")
-    batch_size = 16
+    data = customloader.get_datasets(path = args.dataset_path)
+    batch_size = args.batch_size
     dataloader = DataLoader(dataset = data, batch_size = batch_size, shuffle = True)
     num_datas = len(dataloader)*batch_size
     classifier = HighFreqVit.HighFreqVitClassifier()
     device = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
     print(device, torch.cuda.get_device_name())
     classifier.to(device)
-    num_epochs = 50
+    num_epochs = args.num_epochs
     optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01)
-    use_checkpoint = True
+    use_checkpoint = False
     
     if use_checkpoint:
-        if glob.glob("./checkpoints/*.pt"): 
-            checkpoint_path = glob.glob("./checkpoints/*.pt") 
+        if glob.glob(args.save_path + "*.pt"): 
+            checkpoint_path = glob.glob(args.save_path + "*.pt") 
             checkpoint = torch.load(checkpoint_path.pop())
+
             classifier.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
             checkpoint_epoch = checkpoint['epoch']
             loss = checkpoint['loss']
         
@@ -94,8 +97,17 @@ def main():
                         'model_state_dict' : classifier.state_dict(),
                         'optimizer_state_dict' : optimizer.state_dict(),
                         'loss' : loss
-                        }, f"./checkpoints/detector_{epoch}.pt")
+                        }, args.save_path + f"detector_{epoch}.pt")
         
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Train a HighFreqVit model")
+    parser.add_argument('--dataset_path', type=str, default = "./datasets", help="Path to the dataset")
+    parser.add_argument('--save_path', type=str, default = "./checkpoints/", help="Path to the dataset")
+    parser.add_argument('--num_epochs', type=int, default=50, help="Number of epochs to train")
+    parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")
+    parser.add_argument('--use_checkpoint', type=bool,default=False, help="whether to use checkpoints or not")
+    
+    args = parser.parse_args()
+
+    main(args)
