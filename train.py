@@ -17,19 +17,20 @@ def main():
     classifier.to(device)
     num_epochs = 50
     optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01)
-    checkpoint = None
+    use_checkpoint = True
     
-    if glob.glob("./checkpoints/*.pt"): 
-        checkpoint_path = glob.glob("./checkpoints/*.pt") 
-        checkpoint = torch.load(checkpoint_path.pop())
-        classifier.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        checkpoint_epoch = checkpoint['epoch']
-        loss = checkpoint['loss']
+    if use_checkpoint:
+        if glob.glob("./checkpoints/*.pt"): 
+            checkpoint_path = glob.glob("./checkpoints/*.pt") 
+            checkpoint = torch.load(checkpoint_path.pop())
+            classifier.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            checkpoint_epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
         
     for epoch in range(1, num_epochs + 1):
         
-        if bool(checkpoint) and (epoch <= checkpoint_epoch):
+        if use_checkpoint and (epoch <= checkpoint_epoch):
             continue
         
         train_acc = 0
@@ -55,6 +56,9 @@ def main():
                 else:
                     train_loss = torch.mean(torch.stack([train_loss, loss]))
                 
+                if batch_num%10 == 0:
+                    print(f"\nTraining accuracy : {train_acc}/{(batch_num + 1) * batch_size},\tTrining Loss : {train_loss}")
+                
                 loss.backward()
                 optimizer.step()
             
@@ -72,6 +76,10 @@ def main():
                     validation_loss = loss
                 else:
                     validation_loss = torch.mean(torch.stack([validation_loss, loss]))
+                    
+                if batch_num%10 == 0:
+                    print(f"\nValidation accuracy : {validation_acc}/{(batch_num - split_val) * batch_size},\tValidation Loss : {validation_loss}")
+            
             
         train_acc = train_acc/(split_val * batch_size) * 100
         validation_acc = validation_acc/((len(dataloader) - split_val) * batch_size) * 100
@@ -81,7 +89,6 @@ def main():
         
 
         if epoch % 10 == 0:
-
             torch.save({
                         'epoch' : epoch, 
                         'model_state_dict' : classifier.state_dict(),
