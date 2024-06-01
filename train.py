@@ -19,9 +19,9 @@ def main():
     optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01)
     checkpoint = None
     
-    if glob.glob("./*.pt"): # never be run as long as we save all the checkpoints under 'checkpoints' folder
-       checkpoint_path = glob.glob.pop() # bring latest checkpoint
-       checkpoint = torch.load(checkpoint_path)
+    if glob.glob("./checkpoints/*.pt"): 
+        checkpoint_path = glob.glob("./checkpoints/*.pt") 
+        checkpoint = torch.load(checkpoint_path.pop())
         classifier.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         checkpoint_epoch = checkpoint['epoch']
@@ -32,25 +32,52 @@ def main():
         if bool(checkpoint) and (epoch <= checkpoint_epoch):
             continue
         
-        acc = 0
-        
+        train_acc = 0
+        train_loss = None
+        validation_acc = 0
+        validation_loss = None
+        split_val = int(len(dataloader) * 0.8)
         for batch_num, batch in enumerate(tqdm(dataloader)):
-            optimizer.zero_grad()
+            if batch_num < split_val:
+                optimizer.zero_grad()
+                
+                img, labels = batch
+                labels = list(labels)
+                
+                logits, loss = classifier(img.to(device), labels, device)
+                
+                for idx in range(len(labels)):
+                    if labels[idx] == logits[idx]:
+                        train_acc = train_acc + 1
+                
+                if train_loss is None:
+                    train_loss = loss
+                else:
+                    train_loss = torch.mean(torch.stack([train_loss, loss]))
+                
+                loss.backward()
+                optimizer.step()
             
-            img, labels = batch
-            labels = list(labels)
+            else:
+                img, labels = batch
+                labels = list(labels)
+                
+                logits, loss = classifier(img.to(device), labels, device)
+                
+                for idx in range(len(labels)):
+                    if labels[idx] == logits[idx]:
+                        validation_acc = validation_acc + 1
+                
+                if validation_loss is None:
+                    validation_loss = loss
+                else:
+                    validation_loss = torch.mean(torch.stack([validation_loss, loss]))
             
-            logits, loss = classifier(img.to(device), labels, device)
-            
-            for idx in range(len(labels)):
-                if labels[idx] == logits[idx]:
-                    acc = acc + 1
-            
-            loss.backward()
-            optimizer.step()
-            
-        acc = acc/num_datas * 100
-        print("\nEpoch : ", epoch, "\nTraining accuracy : ", acc, "%\nTraining Loss : ", loss.item(), "\n")
+        train_acc = train_acc/(split_val * batch_size) * 100
+        validation_acc = validation_acc/((len(dataloader) - split_val) * batch_size) * 100
+        print(f"\nEpoch : {epoch}")
+        print(f"Training accuracy : {train_acc:.3f}%,\tTraining Loss : {train_loss.item():.5f}")
+        print(f"Validation accuracy : {validation_acc:.3f}%,\tValidation Loss : {validation_loss.item():.5f}")
         
 
         if epoch % 10 == 0:
