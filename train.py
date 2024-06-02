@@ -44,7 +44,7 @@ def main(args):
         train_loss = None
         validation_acc = 0
         validation_loss = None
-        for train_idx, train_batch in enumerate(tqdm(train_dataloader)):
+        for train_idx, train_batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             
             img, labels = train_batch
