@@ -1,3 +1,4 @@
 datasets/
-__pycache__/
-*.pt
+src/__pycache__/
+checkpoints/
+pretrained/
