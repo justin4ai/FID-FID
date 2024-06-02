@@ -62,7 +62,7 @@ def main(args):
                 train_loss = torch.mean(torch.stack([train_loss, loss]))
             
             if train_idx%10 == 0:
-                print(f"\nTraining accuracy : {train_acc}/{(train_idx + 1) * batch_size},\tTrining Loss : {train_loss}")
+                print(f"\n{train_idx}/{len(train_dataloader)}th iteration : Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
             
             loss.backward()
             optimizer.step()
