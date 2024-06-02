@@ -66,29 +66,31 @@ def main(args):
                 optimizer.step()
             
             else:
-                img, labels = batch
-                labels = list(labels)
-                
-                logits, loss = classifier(img.to(device), labels, device)
-                
-                for idx in range(len(labels)):
-                    if labels[idx] == logits[idx]:
-                        validation_acc = validation_acc + 1
-                
-                if validation_loss is None:
-                    validation_loss = loss
-                else:
-                    validation_loss = torch.mean(torch.stack([validation_loss, loss]))
+                with torch.no_grad():
                     
-                if batch_num%10 == 0:
-                    print(f"\nValidation accuracy : {validation_acc}/{(batch_num - split_val) * batch_size},\tValidation Loss : {validation_loss}")
+                    img, labels = batch
+                    labels = list(labels)
+                    
+                    logits, loss = classifier(img.to(device), labels, device)
+                    
+                    for idx in range(len(labels)):
+                        if labels[idx] == logits[idx]:
+                            validation_acc = validation_acc + 1
+                    
+                    if validation_loss is None:
+                        validation_loss = loss
+                    else:
+                        validation_loss = torch.mean(torch.stack([validation_loss, loss]))
+                        
+                    if batch_num%10 == 0:
+                        print(f"\nValidation accuracy : {validation_acc}/{(batch_num - split_val) * batch_size},\tValidation Loss : {validation_loss}")
             
             
         train_acc = train_acc/(split_val * batch_size) * 100
         validation_acc = validation_acc/((len(dataloader) - split_val) * batch_size) * 100
         print(f"\nEpoch : {epoch}")
         print(f"Training accuracy : {train_acc:.3f}%,\tTraining Loss : {train_loss.item():.5f}")
-        print(f"Validation accuracy : {validation_acc:.3f}%,\tValidation Loss : {validation_loss.item():.5f}")
+        print(f"Validation accuracy : {validation_acc:.3f}%,\tValidation Loss : {validation_loss.item():.5f}\n")
         
 
         if epoch % 10 == 0:
@@ -106,7 +108,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_path', type=str, default = "./checkpoints/", help="Path to the dataset")
     parser.add_argument('--num_epochs', type=int, default=50, help="Number of epochs to train")
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")
-    parser.add_argument('--use_checkpoint', type=bool,default=False, help="whether to use checkpoints or not")
+    parser.add_argument('--use_checkpoint', type=bool, default=False, help="whether to use checkpoints or not")
     
     args = parser.parse_args()
 
