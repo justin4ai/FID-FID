@@ -10,9 +10,10 @@ class HighPass(nn.Module):
         self.image_size = config.image_size
         self.highpass_rate = config.highpass_rate
         
-    def highpass_filter(self, batch):
-        mid = self.image_size//2
-        rate = self.image_size//self.highpass_rate
+    def highpass(self, batch):
+        b, c, h, w = batch.shape
+        mid = h//2
+        rate = h//self.highpass_rate
         fft_image = torch.fft.fftshift(torch.fft.fft2(batch, dim = [-2, -1], norm = 'ortho'))
         fft_image[:, :, mid-rate:mid+rate, mid-rate:mid+rate] = 0.0
         highpassed = torch.fft.ifft2(torch.fft.ifftshift(fft_image), dim = [-2, -1], norm = 'ortho')
@@ -21,7 +22,7 @@ class HighPass(nn.Module):
         return highpassed
         
     def forward(self, batch):
-        highpassed = self.highpass_filter(batch)
+        highpassed = self.highpass(batch)
         return highpassed
 
 class PatchEmbadding(nn.Module):
