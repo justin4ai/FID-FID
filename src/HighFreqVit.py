@@ -6,7 +6,6 @@ from src.Configueration import VitConfig
 from src import FreqEncoder
 from transformers import ViTModel
 
-
 class CrossAttention(FreqEncoder.MSAttention):
     def __init__(self, config = VitConfig()):
         super().__init__()

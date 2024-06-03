@@ -47,11 +47,12 @@ class DataProcesser():
     
     def show_tensor_image(self, img): 
         if len(img.shape) == 4:
-            for idx in range(img.shape[0]):
-                img = img[idx, :, : ,:]
-                img = self.rev_trans(img)
-                plt.subplot(1, img.shape[0], idx)
-                plt.imshow(img)
+            b, c, h, w = img.shape
+            for idx in range(b):
+                t_img = img[idx, :, : ,:]
+                t_img = self.rev_trans(t_img)
+                plt.subplot(1, b, idx + 1)
+                plt.imshow(t_img)
             
         else:
             img = self.rev_trans(img)
