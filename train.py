@@ -8,7 +8,7 @@ import argparse
 
 def main(args):
     customloader = CustomDataLoader.DataProcesser()
-    data = customloader.get_datasets(path = args.dataset_path)
+    data = customloader.get_datasets(dataset_path = "./datasets/train/", real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
     num_datas = len(data)
     train_size = int(num_datas * 0.8)
     validation_size = int(num_datas - train_size)
@@ -62,7 +62,7 @@ def main(args):
                 train_loss = torch.mean(torch.stack([train_loss, loss]))
             
             if train_idx%10 == 0:
-                print(f"\n{train_idx}/{len(train_dataloader)}th iteration : Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
+                print(f"\nEpoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
             
             loss.backward()
             optimizer.step()
@@ -105,7 +105,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a HighFreqVit model")
-    parser.add_argument('--dataset_path', type=str, default = "./datasets", help="Path to the dataset")
+    parser.add_argument('--real_folder_name', type=str, default = "real", help="Path to the dataset")
+    parser.add_argument('--fake_folder_name', type=str, default = "generated", help="Path to the dataset")
     parser.add_argument('--save_path', type=str, default = "./checkpoints/", help="Path to the dataset")
     parser.add_argument('--num_epochs', type=int, default=50, help="Number of epochs to train")
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")

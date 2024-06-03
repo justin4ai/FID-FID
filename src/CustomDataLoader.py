@@ -7,13 +7,13 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 
 class MyDatasets(Dataset):
-    def __init__(self, path, train = True, transform = None):
+    def __init__(self, path, real_folder_name = "", fake_folder_name = "", train = True, transform = None):
         self.path = path
         
         if train:
-            self.data_real = glob.glob(self.path + '/train/real/*.jpg')
+            self.data_real = glob.glob(self.path + f'{real_folder_name}/*.jpg')
             self.data_real = random.sample(self.data_real, 1000)
-            self.data_generated = glob.glob(self.path + '/train/generated/*.*')
+            self.data_generated = glob.glob(self.path + f'{fake_folder_name}/*.*')
             self.data = self.data_real + self.data_generated
             self.class_list = ["real"] * len(self.data_real) + ["generated"] * len(self.data_generated)
         else:
@@ -59,5 +59,5 @@ class DataProcesser():
             
         plt.show()
 
-    def get_datasets(self, path, train = True):
-        return MyDatasets(path = path, train = train, transform = self.trans)
+    def get_datasets(self, dataset_path, real_folder_name = "", fake_folder_name = "", train = True):
+        return MyDatasets(path = dataset_path, real_folder_name=real_folder_name, fake_folder_name=fake_folder_name, train = train, transform = self.trans)
