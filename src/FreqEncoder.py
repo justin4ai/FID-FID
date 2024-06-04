@@ -26,8 +26,7 @@ class PatchEmbadding(nn.Module):
         for b_idx in range(b):
             for i in range(patch_len):
                 for j in range(patch_len):
-                    tmp_patch = batch[b_idx, :, i*self.patch_size:(i+1)*self.patch_size, j*self.patch_size:(j+1)*self.patch_size].flatten()
-                    hidden_states[b_idx, i*patch_len+j, :] = tmp_patch
+                    hidden_states[b_idx, i*patch_len+j, :] = batch[b_idx, :, i*self.patch_size:(i+1)*self.patch_size, j*self.patch_size:(j+1)*self.patch_size].flatten()
         
         return hidden_states
 
@@ -58,6 +57,7 @@ class HighPass(nn.Module):
 class LocalHighPass(nn.Module):
     def __init__(self, config = VitConfig()):
         super().__init__()
+        self.device = config.device
         self.hidden_size = config.hidden_size
         self.num_channels = config.num_channels
         self.patch_size = config.patch_size
@@ -66,7 +66,7 @@ class LocalHighPass(nn.Module):
            
     def forward(self, hidden_states):
         batch_num = hidden_states.shape[0]
-        reshape = torch.zeros((self.num_patchs, self.num_channels, self.patch_size, self.patch_size))
+        reshape = torch.zeros((self.num_patchs, self.num_channels, self.patch_size, self.patch_size), device = self.device)
         for b_idx in range(batch_num):
             for p_idx in range(self.num_patchs):
                 reshape[p_idx, :, :, :] = hidden_states[b_idx, p_idx, :].reshape(shape = (self.num_channels, self.patch_size, self.patch_size))

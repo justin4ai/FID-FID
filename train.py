@@ -6,6 +6,7 @@ from src import CustomDataLoader
 from src import HighFreqVit
 import argparse
 import time
+# import torch.autograd.profiler as profiler
 
 def main(args):
     customloader = CustomDataLoader.DataProcesser()
@@ -35,8 +36,9 @@ def main(args):
 
             checkpoint_epoch = checkpoint['epoch']
             loss = checkpoint['loss']
-        
-    for epoch in range(1, num_epochs + 1):
+    
+    
+    for epoch in range(1, num_epochs+1):
         if use_checkpoint and (epoch <= checkpoint_epoch):
             continue
         
@@ -51,7 +53,9 @@ def main(args):
             img, labels = train_batch
             labels = list(labels)
             
+            # with profiler.profile(with_stack = True, use_cuda=True, profile_memory=True) as prof:
             logits, loss = classifier(img.to(device), labels, device)
+            # print(prof.key_averages(group_by_stack_n = 5).table(sort_by='cuda_time_total', row_limit=5))
             
             for idx in range(len(labels)):
                 if labels[idx] == logits[idx]:
@@ -69,7 +73,7 @@ def main(args):
                 
             loss.backward()
             optimizer.step()
-        
+            
         with torch.no_grad():    
             for val_idx, val_batch in enumerate(tqdm(validation_dataloader)):
                 img, labels = val_batch
@@ -104,6 +108,8 @@ def main(args):
                         'optimizer_state_dict' : optimizer.state_dict(),
                         'loss' : loss
                         }, args.save_path + f"detector_{epoch}.pt")
+    
+    
         
 
 if __name__ == '__main__':
