@@ -1,4 +1,5 @@
 datasets/
 src/__pycache__/
 checkpoints/
+checkpoints2/
 pretrained/
