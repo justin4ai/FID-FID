@@ -5,6 +5,7 @@ from tqdm import tqdm
 from src import CustomDataLoader
 from src import HighFreqVit
 import argparse
+import time
 
 def main(args):
     customloader = CustomDataLoader.DataProcesser()
@@ -36,10 +37,10 @@ def main(args):
             loss = checkpoint['loss']
         
     for epoch in range(1, num_epochs + 1):
-        
         if use_checkpoint and (epoch <= checkpoint_epoch):
             continue
         
+        start_time = time.time()
         train_acc = 0
         train_loss = None
         validation_acc = 0
@@ -63,7 +64,9 @@ def main(args):
             
             if train_idx%10 == 0:
                 print(f"\nEpoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
-            
+                print(f"Runtime : {(time.time() - start_time):.2f}sec")
+                start_time = time.time()
+                
             loss.backward()
             optimizer.step()
         
