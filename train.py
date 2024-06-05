@@ -70,6 +70,10 @@ def main(args):
             optimizer.step()
             
             if train_idx%10 == 0:
+                print(f"\nEpoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : ")
+                print(f"Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
+                print(f"Running time(Train) : {(time.time() - start_time):.2f}")
+                start_time = time.time()
                 with torch.no_grad():
                     test_acc = 0
                     for test_idx, test_batch in enumerate(test_dataloader):
@@ -83,10 +87,8 @@ def main(args):
                             if labels[idx] == logits[idx]:
                                 test_acc = test_acc + 1
                 
-                print(f"\nEpoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : ")
-                print(f"Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
                 print(f"Testset accuracy : {(test_acc/len(test_data))*100:.2f}%")
-                print(f"Running time : {(time.time() - start_time):.2f}")
+                print(f"Running time(Test) : {(time.time() - start_time):.2f}")
                 start_time = time.time()
                 
             
