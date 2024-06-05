@@ -132,4 +132,4 @@ class HighFreqVitClassifier(nn.Module):
         logit_outputs[logit_outputs>=0.5] = 1
         logit_outputs[logit_outputs<0.5] = 0
         logit_outputs = self.reverse_one_hot_encoding(logit_outputs)
-        return (logit_outputs, loss)
+        return (logits, logit_outputs, loss)
