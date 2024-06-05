@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import numpy as np
 import glob
 from src import CustomDataLoader
 from src.HighFreqVit import HighFreqVitClassifier
@@ -30,7 +31,7 @@ def main(args):
             img, labels = batch
             labels = list(labels)
             
-            logits, loss = model(img.to(device), labels, device = device)
+            raw_logits, logits, loss = model(img.to(device), labels, device = device)
             
             predict = predict + logits
             ground_truth = ground_truth + labels
@@ -40,15 +41,14 @@ def main(args):
         
     accuracy = accuracy/num_datas * 100
     print("Test Accuracy : ", accuracy)
-    print("Predict : \n", predict)
-    print("Ground Truth : \n", ground_truth)
+    print("Predict : \n", np.array([predict, ground_truth]).T)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a HighFreqVit model")
     parser.add_argument('--test_folder_name', type=str, default = "./datasets", help="Path to the test dataset")
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")
-    parser.add_argument('--checkpoint_path', type=str, default="./checkpoints2", help="Which checkpoint to use")
-    parser.add_argument('--checkpoint', type=int, default=40, help="Which checkpoint to use")
+    parser.add_argument('--checkpoint_path', type=str, default="./checkpoints", help="Which checkpoint to use")
+    parser.add_argument('--checkpoint', type=int, default=50, help="Which checkpoint to use")
 
     args = parser.parse_args()
 

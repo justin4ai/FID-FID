@@ -15,17 +15,20 @@ def main(args):
     train_size = int(num_datas * 0.8)
     validation_size = int(num_datas - train_size)
     train_data, validation_data = random_split(data, [train_size, validation_size])
-    test_data, _ = random_split(test_data, [int(len(test_data) * 0.2), int(len(test_data)*0.8)])
+    test_data, _ = random_split(test_data, [int(len(test_data) * 0.1), int(len(test_data)*0.9)])
+    
     batch_size = args.batch_size
     train_dataloader = DataLoader(dataset = train_data, batch_size = batch_size, shuffle = True)
     validation_dataloader = DataLoader(dataset = validation_data, batch_size = batch_size, shuffle = True)
     test_dataloader = DataLoader(dataset = test_data, batch_size = batch_size, shuffle = True )
+    
     classifier = HighFreqVit.HighFreqVitClassifier()
     device = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
     print(device, torch.cuda.get_device_name())
     classifier.to(device)
+    
     num_epochs = args.num_epochs
-    optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01, weight_decay = 0.01)
     use_checkpoint = args.use_checkpoint
     
     if use_checkpoint:
@@ -46,6 +49,7 @@ def main(args):
         
         train_acc = 0
         train_loss = None
+        test_interval = int(len(train_dataloader)/args.test_interval)
         validation_acc = 0
         validation_loss = None
         for train_idx, train_batch in enumerate(train_dataloader):
@@ -74,6 +78,8 @@ def main(args):
                 print(f"Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
                 print(f"Running time(Train) : {(time.time() - start_time):.2f}")
                 start_time = time.time()
+                
+            if train_idx%test_interval == 0:
                 with torch.no_grad():
                     test_acc = 0
                     for test_idx, test_batch in enumerate(test_dataloader):
@@ -87,6 +93,7 @@ def main(args):
                             if labels[idx] == logits[idx]:
                                 test_acc = test_acc + 1
                 
+                print(f"\n<Test Session> - {train_idx}/{len(train_dataloader)}th iteration : ")
                 print(f"Testset accuracy : {(test_acc/len(test_data))*100:.2f}%")
                 print(f"Running time(Test) : {(time.time() - start_time):.2f}")
                 start_time = time.time()
@@ -138,6 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_path', type=str, default = "./checkpoints/", help="Path to the dataset")
     parser.add_argument('--num_epochs', type=int, default=50, help="Number of epochs to train")
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")
+    parser.add_argument('--test_interval', type=int, default=10, help="interval of test session during training")
     parser.add_argument('--use_checkpoint', type=bool, default=False, help="whether to use checkpoints or not")
     
     args = parser.parse_args()
