@@ -11,9 +11,9 @@ class MyDatasets(Dataset):
         self.path = path
         
         if train:
-            self.data_real = glob.glob(self.path + f'{real_folder_name}/*.jpg')
-            self.data_real = random.sample(self.data_real, 1000)
             self.data_generated = glob.glob(self.path + f'{fake_folder_name}/*.*')
+            self.data_real = glob.glob(self.path + f'{real_folder_name}/*.*')
+            self.data_real = random.sample(self.data_real, len(self.data_generated))
             self.data = self.data_real + self.data_generated
             self.class_list = ["real"] * len(self.data_real) + ["generated"] * len(self.data_generated)
         else:
