@@ -8,6 +8,10 @@ import argparse
 import time
 
 def main(args):
+
+    lr = args.learning_rate
+    decay = args.weight_decay
+
     customloader = CustomDataLoader.DataProcesser()
     data = customloader.get_datasets(dataset_path = "./datasets/train/", real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
     test_data = customloader.get_datasets(dataset_path = args.test_folder_name, train = False)
@@ -28,7 +32,7 @@ def main(args):
     classifier.to(device)
     
     num_epochs = args.num_epochs
-    optimizer = torch.optim.Adam(classifier.parameters(), lr = 0.01, weight_decay = 0.01)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr = lr, weight_decay = decay)
     use_checkpoint = args.use_checkpoint
     
     if use_checkpoint:
@@ -147,7 +151,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")
     parser.add_argument('--test_interval', type=int, default=10, help="interval of test session during training")
     parser.add_argument('--use_checkpoint', type=bool, default=False, help="whether to use checkpoints or not")
-    
+    parser.add_argument('--learning_rate', type=float, default=0.005, help="Learning rate")
+    parser.add_argument('--weight_decay', type=float, default=0.005, help="Weight decay")
     args = parser.parse_args()
 
     main(args)
