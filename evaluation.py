@@ -13,6 +13,7 @@ def main(args):
     batch_size = args.batch_size
     dataloader = DataLoader(dataset = data, batch_size = batch_size)
     num_datas = len(dataloader)*batch_size
+
     device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
     model = HighFreqVitClassifier()
     checkpoint = args.checkpoint

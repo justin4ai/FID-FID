@@ -6,7 +6,6 @@ from src import CustomDataLoader
 from src import HighFreqVit
 import argparse
 import time
-# import torch.autograd.profiler as profiler
 
 def main(args):
 
@@ -17,7 +16,7 @@ def main(args):
     data = customloader.get_datasets(dataset_path = "./datasets/train/", real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
     test_data = customloader.get_datasets(dataset_path = args.test_folder_name, train = False)
     num_datas = len(data)
-    train_size = int(num_datas * 0.9)
+    train_size = int(num_datas * 0.8)
     validation_size = int(num_datas - train_size)
     train_data, validation_data = random_split(data, [train_size, validation_size])
     test_data, _ = random_split(test_data, [int(len(test_data) * 0.1), int(len(test_data)*0.9)])
@@ -46,27 +45,25 @@ def main(args):
 
             checkpoint_epoch = checkpoint['epoch']
             loss = checkpoint['loss']
-    
-    
-    for epoch in range(1, num_epochs+1):
+        
+    for epoch in range(1, num_epochs + 1):
+        
         if use_checkpoint and (epoch <= checkpoint_epoch):
             continue
         
-        start_time = time.time()
         train_acc = 0
         train_loss = None
         test_interval = int(len(train_dataloader)/args.test_interval)
         validation_acc = 0
         validation_loss = None
+        start_time = time.time()
         for train_idx, train_batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             
             img, labels = train_batch
             labels = list(labels)
             
-            # with profiler.profile(with_stack = True, use_cuda=True, profile_memory=True) as prof:
             raw_logits, logits, loss = classifier(img.to(device), labels, device)
-            # print(prof.key_averages(group_by_stack_n = 5).table(sort_by='cuda_time_total', row_limit=5))
             
             for idx in range(len(labels)):
                 if labels[idx] == logits[idx]:
@@ -77,15 +74,36 @@ def main(args):
             else:
                 train_loss = torch.mean(torch.stack([train_loss, loss]))
             
-            if train_idx%10 == 0:
-                print(f"\nEpoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : ")
-                print(f"Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
-                print(f"Runtime : {(time.time() - start_time):.2f}sec")
-                start_time = time.time()
-                
             loss.backward()
             optimizer.step()
             
+            if train_idx%10 == 0:
+                print(f"\nEpoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : ")
+                print(f"Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
+                print(f"Running time(Train) : {(time.time() - start_time):.2f}")
+                start_time = time.time()
+                
+            if train_idx%test_interval == 0:
+                with torch.no_grad():
+                    test_acc = 0
+                    for test_idx, test_batch in enumerate(test_dataloader):
+                        img, labels = test_batch
+                        labels = list(labels)
+                
+                        raw_logits, logits, loss = classifier(img.to(device), labels, device)
+                
+                        for idx in range(len(labels)):
+                            # print((labels[idx], logits[idx], raw_logits[idx]))
+                            if labels[idx] == logits[idx]:
+                                test_acc = test_acc + 1
+                
+                print(f"\n<Test Session> - {train_idx}/{len(train_dataloader)}th iteration : ")
+                print(f"Testset accuracy : {(test_acc/len(test_data))*100:.2f}%")
+                print(f"Running time(Test) : {(time.time() - start_time):.2f}")
+                start_time = time.time()
+                
+            
+        
         with torch.no_grad():    
             for val_idx, val_batch in enumerate(validation_dataloader):
                 img, labels = val_batch
@@ -121,7 +139,7 @@ def main(args):
                         'optimizer_state_dict' : optimizer.state_dict(),
                         'loss' : loss
                         }, args.save_path + f"detector_{epoch}.pt")
-    
+        
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a HighFreqVit model")

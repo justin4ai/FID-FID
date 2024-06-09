@@ -6,7 +6,6 @@ from src.Configueration import VitConfig
 from src import FreqEncoder
 from transformers import ViTModel
 
-
 class CrossAttention(FreqEncoder.MSAttention):
     def __init__(self, config = VitConfig()):
         super().__init__()
@@ -100,6 +99,7 @@ class HighFreqVitClassifier(nn.Module):
         self.classifier = nn.Linear(config.hidden_size, self.num_labels)
         self.loss_func = nn.CrossEntropyLoss()
         self.output = nn.Softmax(dim = -1)
+        self.device = config.device
        
     def one_hot_encoding(self, labels):
         one_hot_vectors = []
@@ -110,7 +110,7 @@ class HighFreqVitClassifier(nn.Module):
                     vector[idx] = 1
             one_hot_vectors.append(vector)
             
-        return torch.as_tensor(np.array(one_hot_vectors))
+        return torch.as_tensor(np.array(one_hot_vectors), device = self.device)
         
     def reverse_one_hot_encoding(self, outputs):
         labels = []
