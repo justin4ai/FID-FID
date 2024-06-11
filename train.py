@@ -12,10 +12,16 @@ def main(args):
 
     lr = args.learning_rate
     decay = args.weight_decay
+    base_folder_real = args.base_folder_real
+    base_folder_fake = args.base_folder_fake
+
+
+
 
     customloader = CustomDataLoader.DataProcesser()
-    data = customloader.get_datasets(dataset_path = "./datasets/train/", real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
-    test_data = customloader.get_datasets(dataset_path = args.test_folder_name, train = False)
+    data = customloader.get_datasets(base_folder_real = base_folder_real, base_folder_fake = base_folder_fake, base_folder_test = args.test_folder,
+                                      real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
+    test_data = customloader.get_datasets(base_folder_test = args.test_folder, train = False)
     num_datas = len(data)
     train_size = int(num_datas * 0.9)
     validation_size = int(num_datas - train_size)
@@ -114,7 +120,7 @@ def main(args):
         print(f"Validation accuracy : {validation_acc:.3f}%,\tValidation Loss : {validation_loss.item():.5f}\n")
         
 
-        if epoch % 10 == 0:
+        if epoch % 20 == 0:
             torch.save({
                         'epoch' : epoch, 
                         'model_state_dict' : classifier.state_dict(),
@@ -125,9 +131,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a HighFreqVit model")
-    parser.add_argument('--real_folder_name', type=str, default = "real", help="Path to the dataset")
-    parser.add_argument('--fake_folder_name', type=str, default = "generated", help="Path to the dataset")
-    parser.add_argument('--test_folder_name', type=str, default = "./datasets", help="Path to the test dataset")
+    parser.add_argument('--base_folder_real', type=str, default = "./datasets/train/", help="Path to the dataset")
+    parser.add_argument('--base_folder_fake', type=str, default = "./datasets/train/", help="Path to the dataset")
+    parser.add_argument('--base_folder_test', type=str, default = "./datasets/test/", help="Path to the dataset")
+    parser.add_argument('--real_folder_name', type=str, default = "/real", help="Path to the dataset")
+    parser.add_argument('--fake_folder_name', type=str, default = "/generated", help="Path to the dataset")
+    parser.add_argument('--test_folder', type=str, default = "./datasets", help="Path to the test dataset")
     parser.add_argument('--save_path', type=str, default = "./checkpoints/", help="Path to the dataset")
     parser.add_argument('--num_epochs', type=int, default=50, help="Number of epochs to train")
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")

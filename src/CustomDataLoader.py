@@ -8,18 +8,24 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 
 class MyDatasets(Dataset):
-    def __init__(self, path, real_folder_name = "", fake_folder_name = "", train = True, transform = None):
-        self.path = path
-        
+    def __init__(self, base_real, base_fake, base_test, real_folder_name = "", fake_folder_name = "", train = True, transform = None):
+        #self.path = path
+        self.base_real = base_real
+        self.base_fake = base_fake
+        self.base_test = base_test
+
         if train:
-            self.data_generated = glob.glob(self.path + f'{fake_folder_name}/*.*')
-            self.data_real = glob.glob(self.path + f'{real_folder_name}/*.*')
+            # self.data_generated = glob.glob(self.path + f'{fake_folder_name}/*.*')
+            # self.data_real = glob.glob(self.path + f'{real_folder_name}/*.*')
+            self.data_generated = glob.glob(self.base_fake + f'{fake_folder_name}/*.*')
+            #print(self.base_fake + f'{fake_folder_name}/*.*')
+            self.data_real = glob.glob(self.base_real + f'{real_folder_name}/*.*')
             if len(self.data_generated) < len(self.data_real):
                 self.data_real = random.sample(self.data_real, len(self.data_generated))
             self.data = self.data_real + self.data_generated
             self.class_list = ["real"] * len(self.data_real) + ["generated"] * len(self.data_generated)
         else:
-            self.data = glob.glob(self.path + '/test/*.jpg')
+            self.data = glob.glob(self.base_test + '/test/*.jpg')
             class_list = pl.read_csv("./datasets/test/test_labels.csv", separator = ';')
             self.class_list = class_list.select(pl.col('label')).to_numpy().flatten()
         
@@ -62,5 +68,5 @@ class DataProcesser():
             
         plt.show()
 
-    def get_datasets(self, dataset_path, real_folder_name = "", fake_folder_name = "", train = True):
-        return MyDatasets(path = dataset_path, real_folder_name=real_folder_name, fake_folder_name=fake_folder_name, train = train, transform = self.trans)
+    def get_datasets(self, base_folder_real = "", base_folder_fake = "", base_folder_test = "", real_folder_name = "", fake_folder_name = "", train = True):
+        return MyDatasets(base_real = base_folder_real, base_fake = base_folder_fake, base_test = base_folder_test, real_folder_name=real_folder_name, fake_folder_name=fake_folder_name, train = train, transform = self.trans)
