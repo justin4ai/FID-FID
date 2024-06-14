@@ -8,19 +8,27 @@ import argparse
 import time
 # import torch.autograd.profiler as profiler
 
+def get_n_params(model):
+    pp=0
+    for p in list(model.parameters()):
+        nn=1
+        for s in list(p.size()):
+            nn = nn*s
+        pp += nn
+    return pp
+
 def main(args):
 
     lr = args.learning_rate
     decay = args.weight_decay
 
     customloader = CustomDataLoader.DataProcesser()
-    data = customloader.get_datasets(dataset_path = "./datasets/train/", real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
-    test_data = customloader.get_datasets(dataset_path = args.test_folder_name, train = False)
+    data = customloader.get_datasets(real_folder_name = args.real_folder_name, fake_folder_name = args.fake_folder_name)
+    test_data = customloader.get_datasets(test_forder_name = args.test_folder_name, train = False)
     num_datas = len(data)
     train_size = int(num_datas * 0.9)
     validation_size = int(num_datas - train_size)
     train_data, validation_data = random_split(data, [train_size, validation_size])
-    test_data, _ = random_split(test_data, [int(len(test_data) * 0.1), int(len(test_data)*0.9)])
     
     batch_size = args.batch_size
     train_dataloader = DataLoader(dataset = train_data, batch_size = batch_size, shuffle = True)
@@ -28,6 +36,7 @@ def main(args):
     test_dataloader = DataLoader(dataset = test_data, batch_size = batch_size, shuffle = True )
     
     classifier = HighFreqVit.HighFreqVitClassifier()
+    print(get_n_params(classifier))
     device = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
     print(device, torch.cuda.get_device_name())
     classifier.to(device)
@@ -52,12 +61,11 @@ def main(args):
         if use_checkpoint and (epoch <= checkpoint_epoch):
             continue
         
-        start_time = time.time()
         train_acc = 0
         train_loss = None
-        test_interval = int(len(train_dataloader)/args.test_interval)
-        validation_acc = 0
-        validation_loss = None
+        test_interval = int(len(train_dataloader)/args.test_session_num)
+        
+        start_time = time.time()
         for train_idx, train_batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             
@@ -82,10 +90,39 @@ def main(args):
                 print(f"Training accuracy : {(train_acc/((train_idx + 1) * batch_size))*100:.2f}%,\tTraining Loss : {train_loss}")
                 print(f"Runtime : {(time.time() - start_time):.2f}sec")
                 start_time = time.time()
-                
+            
             loss.backward()
             optimizer.step()
+              
+            if train_idx%test_interval == 0:
+                test_acc = 0
+                test_loss = None
+                test_start = time.time()
+                with torch.no_grad():    
+                    for test_idx, test_batch in enumerate(test_dataloader):
+                        img, labels = test_batch
+                        labels = list(labels)
+                        
+                        raw_logits, logits, loss = classifier(img.to(device), labels, device)
+                        
+                        for idx in range(len(labels)):
+                            if labels[idx] == logits[idx]:
+                                test_acc = test_acc + 1
+                        
+                        if test_loss is None:
+                            test_loss = loss
+                        else:
+                            test_loss = torch.mean(torch.stack([test_loss, loss]))
+                            
+                        
+                print(f"\n<Test Session> Epoch {epoch} - {train_idx}/{len(train_dataloader)}th iteration : ")
+                print(f"Test accuracy : {(test_acc/(len(test_dataloader) * batch_size)) * 100:.2f},\tTest Loss : {test_loss}")
+                print(f"Runtime : {(time.time() - test_start):.2f}sec")
             
+            
+          
+        validation_acc = 0
+        validation_loss = None  
         with torch.no_grad():    
             for val_idx, val_batch in enumerate(validation_dataloader):
                 img, labels = val_batch
@@ -125,13 +162,13 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a HighFreqVit model")
-    parser.add_argument('--real_folder_name', type=str, default = "real", help="Path to the dataset")
-    parser.add_argument('--fake_folder_name', type=str, default = "generated", help="Path to the dataset")
-    parser.add_argument('--test_folder_name', type=str, default = "./datasets", help="Path to the test dataset")
+    parser.add_argument('--real_folder_name', type=str, default = "./datasets/train/real", help="Path to the dataset")
+    parser.add_argument('--fake_folder_name', type=str, default = "./datasets/train/generated", help="Path to the dataset")
+    parser.add_argument('--test_folder_name', type=str, default = "./datasets/test", help="Path to the test dataset")
     parser.add_argument('--save_path', type=str, default = "./checkpoints/", help="Path to the dataset")
     parser.add_argument('--num_epochs', type=int, default=50, help="Number of epochs to train")
     parser.add_argument('--batch_size', type=int, default=16, help="Mini batch size")
-    parser.add_argument('--test_interval', type=int, default=10, help="interval of test session during training")
+    parser.add_argument('--test_session_num', type=int, default=10, help="Number of test session during training")
     parser.add_argument('--use_checkpoint', type=bool, default=False, help="whether to use checkpoints or not")
     parser.add_argument('--learning_rate', type=float, default=0.005, help="Learning rate")
     parser.add_argument('--weight_decay', type=float, default=0.005, help="Weight decay")

@@ -9,7 +9,7 @@ import argparse
 
 def main(args):
     customloader = CustomDataLoader.DataProcesser()
-    data = customloader.get_datasets(dataset_path = args.test_folder_name, train = False)
+    data = customloader.get_datasets(test_forder_name = args.test_forder_name, train = False)
     batch_size = args.batch_size
     dataloader = DataLoader(dataset = data, batch_size = batch_size)
     num_datas = len(dataloader)*batch_size
