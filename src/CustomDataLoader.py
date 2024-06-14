@@ -2,24 +2,32 @@ import glob
 import random
 from PIL import Image
 import polars as pl
+import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 import matplotlib.pyplot as plt
 
 class MyDatasets(Dataset):
-    def __init__(self, path, real_folder_name = "", fake_folder_name = "", train = True, transform = None):
-        self.path = path
+    def __init__(self, real_folder_name = "", fake_folder_name = "", test_forder_name = "", train = True, transform = None):
+        self.file_type = ['jpg', 'png']
+        self.data_generated = []
+        self.data_real = []
+        self.data = []
         
         if train:
-            self.data_generated = glob.glob(self.path + f'{fake_folder_name}/*.*')
-            self.data_real = glob.glob(self.path + f'{real_folder_name}/*.*')
+            for file_type in self.file_type:
+                self.data_generated += glob.glob(f'{fake_folder_name}/*.{file_type}')
+                self.data_real += glob.glob(f'{real_folder_name}/*.{file_type}')
             if len(self.data_generated) < len(self.data_real):
                 self.data_real = random.sample(self.data_real, len(self.data_generated))
+            else:
+                self.data_generated = random.sample(self.data_generated, len(self.data_real))
             self.data = self.data_real + self.data_generated
             self.class_list = ["real"] * len(self.data_real) + ["generated"] * len(self.data_generated)
         else:
-            self.data = glob.glob(self.path + '/test/*.jpg')
-            class_list = pl.read_csv("./datasets/test/test_labels.csv", separator = ';')
+            for file_type in self.file_type:
+                self.data += glob.glob(f'{test_forder_name}/*.{file_type}')
+            class_list = pl.read_csv(f'{test_forder_name}/test_labels.csv', separator = ';')
             self.class_list = class_list.select(pl.col('label')).to_numpy().flatten()
         
         self.transform = transform
@@ -48,11 +56,12 @@ class DataProcesser():
     
     def show_tensor_image(self, img): 
         if len(img.shape) == 4:
-            for idx in range(img.shape[0]):
-                img = img[idx, :, : ,:]
-                img = self.rev_trans(img)
-                plt.subplot(1, img.shape[0], idx)
-                plt.imshow(img)
+            b, c, h, w = img.shape
+            for idx in range(b):
+                t_img = img[idx, :, : ,:]
+                t_img = self.rev_trans(t_img.type(torch.float64))
+                plt.subplot(1, b, idx + 1)
+                plt.imshow(t_img)
             
         else:
             img = self.rev_trans(img)
@@ -60,5 +69,5 @@ class DataProcesser():
             
         plt.show()
 
-    def get_datasets(self, dataset_path, real_folder_name = "", fake_folder_name = "", train = True):
-        return MyDatasets(path = dataset_path, real_folder_name=real_folder_name, fake_folder_name=fake_folder_name, train = train, transform = self.trans)
+    def get_datasets(self, real_folder_name = "", fake_folder_name = "", test_forder_name = "", train = True):
+        return MyDatasets(real_folder_name=real_folder_name, fake_folder_name=fake_folder_name, test_forder_name = test_forder_name, train = train, transform = self.trans)
