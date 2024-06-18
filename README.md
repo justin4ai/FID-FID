@@ -102,7 +102,8 @@ You can simply train the model using code bellow. To apply traing to specific en
 |--checkpoint_path|Path of the folder where the model checkpoints has stored ("./checkpoints/")|
 |--checkpoint|Which iteration of checkpoint your going to use (50)|
 
-As same as training session, you can simply test the model using code bellow. Also you can apply specific environments by using arguments above to change some options while testing.  
+As same as training session, you can simply test the model using code bellow. Also you can apply specific environments by using arguments above to change some options while testing.    
+
 ```python evaluation.py```
 
 <!--
