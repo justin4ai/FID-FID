@@ -24,7 +24,7 @@
 <br>
 
 <p align="center">
-    <img src="assets/NAT-Diffuser-architecture.png" alt="Alt text" width="650">
+    <img src="FID-Fid.jpg" alt="Alt text" width="650">
 </p>
 
 
